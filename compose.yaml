@@ -7,6 +7,8 @@ services:
       PORT: 8088
       POSTGREST_URL: http://localhost:3000
       PAYMENT_URL: http://localhost:4004
+      DATABASE_CONCURRENCY: ${DATABASE_CONCURRENCY:-10}
+      DATABASE_QUEUE_LIMIT: ${DATABASE_QUEUE_LIMIT:-100}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_SHOP:-shop-api}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
@@ -88,8 +90,8 @@ services:
     command: ["run", "/scripts/smoke.js"]
     environment:
       TARGET_URL: http://localhost:8088
-      VUS: 10
-      DURATION: 60s
+      VUS: ${LOADGEN_VUS:-10}
+      DURATION: ${LOADGEN_DURATION:-60s}
     volumes:
       - ./loadgen/smoke.js:/scripts/smoke.js:ro
     depends_on:
