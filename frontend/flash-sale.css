@@ -1,0 +1,20 @@
+.sale-badge {
+  display: inline-block;
+  margin: 8px 0;
+  padding: 4px 8px;
+  border-radius: 2px;
+  background: var(--coral);
+  color: #fff;
+  font: 11px 'DM Mono', monospace;
+}
+
+.price-stack {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.price-stack del {
+  color: #617168;
+  font-size: 0.9em;
+}

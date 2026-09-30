@@ -54,8 +54,20 @@ const database = async (url, options = {}) => {
     return data;
   } finally { releaseDatabaseSlot(); }
 };
-const mapProduct = product => ({ ...product, priceCents: product.price_cents, price_cents: undefined });
+const mapProduct = product => {
+  const salePriceCents = product.sale_price_cents ?? null;
+  return {
+    ...product,
+    onSale: salePriceCents !== null,
+    originalPriceCents: product.price_cents,
+    salePriceCents,
+    priceCents: salePriceCents ?? product.price_cents,
+    price_cents: undefined,
+    sale_price_cents: undefined,
+  };
+};
 const cart = userId => database(`/carts?user_id=eq.${encodeURIComponent(userId)}&select=quantity,products(*)`).then(items => items.map(item => ({ product: mapProduct(item.products), quantity: item.quantity })));
+const recordProductAction = (action, productId, quantity) => console.log(JSON.stringify({ event: 'shop.product_action', action, product_id: productId, quantity }));
 
 async function route(req, res, url) {
   if (url.pathname === '/health') return send(res, 200, { status: 'ok', service: 'shop-api' });
@@ -66,6 +78,7 @@ async function route(req, res, url) {
     const input = await readBody(req); const existing = await database(`/carts?user_id=eq.${encodeURIComponent(userId)}&product_id=eq.${encodeURIComponent(input.productId)}&select=quantity`);
     const quantity = (existing[0]?.quantity || 0) + Number(input.quantity || 1);
     await database('/carts', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify({ user_id: userId, product_id: input.productId, quantity }) });
+    recordProductAction('cart_add', input.productId, Number(input.quantity || 1));
     return send(res, 200, await cart(userId));
   }
   if (url.pathname === '/api/cart' && req.method === 'DELETE') { await database(`/carts?user_id=eq.${encodeURIComponent(userId)}`, { method: 'DELETE' }); return send(res, 204, null); }
@@ -83,12 +96,14 @@ async function route(req, res, url) {
       payment = await charge(2);
     }
     if (payment.status !== 'approved') return send(res, 402, { error: 'Payment was declined' });
+    for (const item of items) recordProductAction('purchase', item.product.id, item.quantity);
     await database(`/carts?user_id=eq.${encodeURIComponent(userId)}`, { method: 'DELETE' });
     return send(res, 200, { orderId, totalCents, payment, shipping: input.shipping });
   }
   if (['/', '/index.html', '/cart', '/checkout'].includes(url.pathname)) return send(res, 200, fs.readFileSync(path.join(__dirname, 'frontend/index.html'), 'utf8'), 'text/html');
   if (url.pathname === '/app.js') return send(res, 200, fs.readFileSync(path.join(__dirname, 'frontend/app.js'), 'utf8'), 'text/javascript');
   if (url.pathname === '/styles.css') return send(res, 200, fs.readFileSync(path.join(__dirname, 'frontend/styles.css'), 'utf8'), 'text/css');
+  if (url.pathname === '/flash-sale.css') return send(res, 200, fs.readFileSync(path.join(__dirname, 'frontend/flash-sale.css'), 'utf8'), 'text/css');
   return send(res, 404, { error: 'Not found' });
 }
 http.createServer((req, res) => route(req, res, new URL(req.url, `http://${req.headers.host}`)).catch(error => { console.error(error); send(res, error.statusCode || 500, { error: error.message }); })).listen(port, () => console.log(`shop API and frontend running at http://localhost:${port}`));

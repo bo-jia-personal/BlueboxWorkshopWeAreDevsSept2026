@@ -10,6 +10,8 @@ To start the app:
 make up
 ```
 
+Startup applies the additive Flash Sale database migration without removing existing data. A fresh database randomly selects two products for a 20% discount; the selection stays stable across restarts.
+
 To stop the app:
 
 ```bash
